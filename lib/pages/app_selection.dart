@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:device_apps/device_apps.dart';
+// Only import device_apps on Android
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Define stubs for non-Android platforms
+// ignore: uri_does_not_exist
+import 'package:device_apps/device_apps.dart'
+    if (dart.library.io) 'package:device_apps/device_apps.dart'
+    if (dart.library.html) 'unsupported_device_apps.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppSelectionScreen extends StatefulWidget {
@@ -13,8 +21,8 @@ class _AppSelectionScreenState extends State<AppSelectionScreen> {
   static const String _selectedAppsKey = 'selected_apps';
 
   bool _isLoading = true;
-  List<Application> _apps = [];
-  List<Application> _filteredApps = [];
+  List<dynamic> _apps = [];
+  List<dynamic> _filteredApps = [];
   final Set<String> _selectedAppIds = {};
   final TextEditingController _searchController = TextEditingController();
 
@@ -28,36 +36,54 @@ class _AppSelectionScreenState extends State<AppSelectionScreen> {
   Future<void> _loadAppsAndPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final savedAppIds = prefs.getStringList(_selectedAppsKey) ?? [];
-    
-    final apps = await DeviceApps.getInstalledApplications(
-      onlyAppsWithLaunchIntent: true,
-      includeSystemApps: false,
-      includeAppIcons: true,
-    );
 
-    setState(() {
-      _selectedAppIds.addAll(savedAppIds);
-      _apps = apps;
-      _filteredApps = apps;
-      _isLoading = false;
-    });
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        // ignore: undefined_identifier
+        final apps = await DeviceApps.getInstalledApplications(
+          onlyAppsWithLaunchIntent: true,
+          includeSystemApps: false,
+          includeAppIcons: true,
+        );
+        setState(() {
+          _selectedAppIds.addAll(savedAppIds);
+          _apps = apps;
+          _filteredApps = apps;
+          _isLoading = false;
+        });
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _filterApps() {
     final query = _searchController.text.toLowerCase();
     setState(() {
       _filteredApps = _apps.where((app) {
-        return app.appName.toLowerCase().contains(query);
+        final appName = app.appName != null
+            ? app.appName.toString().toLowerCase()
+            : '';
+        return appName.contains(query);
       }).toList();
     });
   }
 
-  void _onAppSelected(Application app, bool isSelected) {
+  void _onAppSelected(dynamic app, bool isSelected) {
     setState(() {
+      final packageName = app.packageName != null
+          ? app.packageName as String
+          : '';
       if (isSelected) {
-        _selectedAppIds.add(app.packageName);
+        _selectedAppIds.add(packageName);
       } else {
-        _selectedAppIds.remove(app.packageName);
+        _selectedAppIds.remove(packageName);
       }
     });
   }
@@ -109,36 +135,40 @@ class _AppSelectionScreenState extends State<AppSelectionScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: _filteredApps.length,
-                    itemBuilder: (context, index) {
-                      final app = _filteredApps[index];
-                      final isSelected =
-                          _selectedAppIds.contains(app.packageName);
+                : (defaultTargetPlatform != TargetPlatform.android)
+                    ? const Center(child: Text('App selection is only supported on Android.'))
+                    : ListView.builder(
+                        itemCount: _filteredApps.length,
+                        itemBuilder: (context, index) {
+                          final app = _filteredApps[index];
+                          final isSelected =
+                              _selectedAppIds.contains(app.packageName ?? '');
 
-                      if (app is ApplicationWithIcon) {
-                        return CheckboxListTile(
-                          secondary: Image.memory(app.icon, width: 40),
-                          title: Text(app.appName),
-                          value: isSelected,
-                          onChanged: (bool? value) {
-                            if (value != null) {
-                              _onAppSelected(app, value);
-                            }
-                          },
-                        );
-                      }
-                      return CheckboxListTile(
-                        title: Text(app.appName),
-                        value: isSelected,
-                        onChanged: (bool? value) {
-                          if (value != null) {
-                            _onAppSelected(app, value);
+                          if (app != null && app.icon != null) {
+                            return CheckboxListTile(
+                              secondary: app.icon is List<int>
+                                  ? Image.memory(app.icon, width: 40)
+                                  : null,
+                              title: Text(app.appName ?? ''),
+                              value: isSelected,
+                              onChanged: (bool? value) {
+                                if (value != null) {
+                                  _onAppSelected(app, value);
+                                }
+                              },
+                            );
                           }
+                          return CheckboxListTile(
+                            title: Text(app.appName ?? ''),
+                            value: isSelected,
+                            onChanged: (bool? value) {
+                              if (value != null) {
+                                _onAppSelected(app, value);
+                              }
+                            },
+                          );
                         },
-                      );
-                    },
-                  ),
+                      ),
           ),
         ],
       ),
