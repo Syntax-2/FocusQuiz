@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:getsmarter/pages/home.dart';
+import 'package:getsmarter/pages/personalization.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -15,7 +16,7 @@ class MyApp extends StatelessWidget {
       title: 'My Flutter App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(fontFamily: 'Playfair Display'),
-      home: const HomePage()
+      home: const PersoPage()
     );
   }
 }
