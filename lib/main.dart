@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:getsmarter/pages/first_page.dart';
 import 'package:getsmarter/pages/personalization.dart';
 
 
@@ -16,7 +17,7 @@ class MyApp extends StatelessWidget {
       title: 'My Flutter App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(fontFamily: 'Playfair Display'),
-      home: const PersoPage()
+      home: Firstpage()
     );
   }
 }
